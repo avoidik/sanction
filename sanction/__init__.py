@@ -193,6 +193,9 @@ def transport_headers(url, access_token, data=None, method=None, headers={}):
 
 
 def transport_query(url, access_token, data=None, method=None, headers={}):
+    all_headers = {}
+    all_headers.update(headers)
+
     parts = urlsplit(url)
     query = dict(parse_qsl(parts.query))
     query['access_token'] = access_token
