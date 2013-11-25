@@ -202,11 +202,6 @@ def transport_headers(url, access_token, data=None, method=None, headers={}):
         req = Request(url, data=data, headers=all_headers)
         req.get_method = lambda: method
 
-    add_headers = {'Authorization': 'Bearer {}'.format(access_token)}
-    if headers:
-        add_headers.update(headers)
-
-    req.headers.update(add_headers)
     return req
 
 
@@ -226,9 +221,6 @@ def transport_query(url, access_token, data=None, method=None, headers={}):
     except TypeError:
         req = Request(url, data=data, headers=all_headers)
         req.get_method = lambda: method
-
-    if headers:
-        req.headers.update(headers)
 
     return req
 
