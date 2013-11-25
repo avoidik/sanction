@@ -155,7 +155,7 @@ class Client(object):
         self.request_token(refresh_token=self.refresh_token,
             grant_type='refresh_token')
 
-    def request(self, url, method=None, data=None, headers=None, parser=None): 
+    def request(self, url, method=None, data=None, headers={}, parser=None): 
         """ Request user data from the resource endpoint
         :param url: The path to the resource and querystring if required
         :param method: HTTP method. Defaults to ``GET`` unless data is not None
