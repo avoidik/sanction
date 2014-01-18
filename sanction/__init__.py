@@ -155,14 +155,15 @@ class Client(object):
         self.request_token(refresh_token=self.refresh_token,
             grant_type='refresh_token')
 
-    def request(self, url, method=None, data=None, headers={}, parser=None): 
+    def request(self, url, method=None, data=None, headers={}, parser=None, raw=False):
         """ Request user data from the resource endpoint
         :param url: The path to the resource and querystring if required
         :param method: HTTP method. Defaults to ``GET`` unless data is not None
                        in which case it defaults to ``POST``
         :param data: Data to be POSTed to the resource endpoint
         :param parser: Parser callback to deal with the returned data. Defaults
-                       to ``json.loads`, and dict(parse_qsl()) as fallback.`
+                       to ``json.loads`.`
+        :param raw: If the raw response object should be returned
         """
         assert self.access_token
         parser = parser or _default_parser 
@@ -172,6 +173,12 @@ class Client(object):
                                    data=data, method=method, headers=headers)
 
         resp = urlopen(req)
+
+        # return the response object if a raw response is requested
+        if raw:
+            return resp
+
+        # otherwise read the data and parse it
         data = resp.read()
         try:
             # Try to decode it first using either the content charset, falling
