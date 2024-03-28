@@ -352,4 +352,4 @@ if __name__ == '__main__':
     server_address = ('', 80)
     server = HTTPServer(server_address, Handler)
     l.info('Starting server on %sport %s \nPress <ctrl>+c to exit' % server_address)
-server.serve_forever()
+    server.serve_forever()

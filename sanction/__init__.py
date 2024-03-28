@@ -61,7 +61,7 @@ class Client(object):
         self.refresh_token = None
 
     def auth_uri(self, redirect_uri=None, scope=None, scope_delim=None, 
-        state=None, **kwargs):
+        state=None, response_type='code', **kwargs):
 
         """  Builds the auth URI for the authorization endpoint
 
@@ -73,13 +73,14 @@ class Client(object):
                       authorization. If the provider follows the OAuth 2.0
                       spec, this will be returned to your `redirect_uri` after
                       authorization. Generally used for CSRF protection.
+        :param response_type: (optional) The `response_type` parameter to pass
+                              for authorization. Typically equalt to `code`.
         :param **kwargs: Any other querystring parameters to be passed to the
                          provider.
         """
         
         kwargs['client_id'] = self.client_id
-        if not 'response_type' in kwargs:
-            kwargs['response_type'] = 'code'
+        kwargs['response_type'] = response_type
 
         if scope is not None:
             kwargs['scope'] = scope
