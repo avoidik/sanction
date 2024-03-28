@@ -85,7 +85,7 @@ class Client(object):
                       spec, this will be returned to your `redirect_uri` after
                       authorization. Generally used for CSRF protection.
         :param response_type: (optional) The `response_type` parameter to pass
-                              for authorization. Typically equalt to `code`.
+                              for authorization. Typically equals to `code`.
         :param **kwargs: Any other querystring parameters to be passed to the
                          provider.
         """
