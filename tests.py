@@ -2,7 +2,6 @@
 import json
 import zlib
 
-from functools import wraps
 from unittest import TestCase
 from uuid import uuid4
 try:
@@ -26,13 +25,12 @@ STATE = str(uuid4())
 ACCESS_TOKEN = 'access_token'
 
 
-
 class TestClient(TestCase):
     def setUp(self):
         self.client = Client(auth_endpoint=AUTH_ENDPOINT,
-            token_endpoint=TOKEN_ENDPOINT,
-            resource_endpoint=RESOURCE_ENDPOINT,
-            client_id=CLIENT_ID)
+                             token_endpoint=TOKEN_ENDPOINT,
+                             resource_endpoint=RESOURCE_ENDPOINT,
+                             client_id=CLIENT_ID)
 
     def test_init(self):
         map(lambda c: self.assertEqual(*c),
@@ -61,7 +59,7 @@ class TestClient(TestCase):
         self.assertEqual(qs['state'], STATE)
 
     @with_patched_client(json.dumps({
-        'access_token':'test_token',
+        'access_token': 'test_token',
         'expires_in': 300,
     }))
     def test_request_token_json(self):
@@ -107,7 +105,7 @@ class TestClient(TestCase):
         'userid': 1234
     }))
     def test_request_transport_headers(self):
-        self.client.token_transport = transport_headers 
+        self.client.token_transport = transport_headers
         self.client.access_token = 'foo'
         data = self.client.request('/foo')
         self.assertEqual(data['userid'], 1234)
@@ -127,7 +125,7 @@ class TestClient(TestCase):
     }))
     def test_custom_transport(self):
         def _transport(url, access_token, data=None, method=None,
-            headers=None):
+                       headers=None):
 
             self.assertEqual(url, 'http://example.com/resource/foo')
             self.assertEqual(access_token, 'foo')
@@ -144,8 +142,8 @@ class TestClient(TestCase):
     }))
     def test_query_transport_with_headers(self):
         self.client.access_token = 'foo'
-        data = self.client.request('/foo', headers={'Content-Type':
-            'application/json'})
+        data = self.client.request('/foo', headers={
+            'Content-Type': 'application/json'})
 
         self.assertEqual(data['userid'], 1234)
 
@@ -154,8 +152,8 @@ class TestClient(TestCase):
     }))
     def test_header_transport_with_headers(self):
         self.client.access_token = 'foo'
-        self.client.token_transport = transport_headers 
-        data = self.client.request('/foo', headers={'Content-Type':
-            'application/json'})
+        self.client.token_transport = transport_headers
+        data = self.client.request('/foo', headers={
+            'Content-Type': 'application/json'})
 
         self.assertEqual(data['userid'], 1234)

@@ -8,14 +8,14 @@ README = README + open(os.path.join(here, "CHANGES")).read()
 requires = []
 
 setup(name="sanction",
-	keywords="python,oauth2",
-    version="0.4.1",
-    description="A simple, lightweight OAuth2 client",
-    author="Demian Brecht",
-    author_email="demianbrecht@gmail.com",
-	url="https://github.com/demianbrecht/sanction",
-    classifiers=[
-		"Development Status :: 5 - Production/Stable",
+      keywords="python,oauth2",
+      version="0.4.1",
+      description="A simple, lightweight OAuth2 client",
+      author="Demian Brecht",
+      author_email="demianbrecht@gmail.com",
+      url="https://github.com/demianbrecht/sanction",
+      classifiers=[
+        "Development Status :: 5 - Production/Stable",
         "Environment :: Web Environment",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
@@ -25,8 +25,7 @@ setup(name="sanction",
         "Topic :: Internet :: WWW/HTTP :: Site Management",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: System :: Systems Administration :: Authentication/Directory"
-    ],
-    long_description=README,
-    install_requires=requires,
-	packages=["sanction",]
-)
+      ],
+      long_description=README,
+      install_requires=requires,
+      packages=["sanction",])

@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 # vim: set ts=4 sw=4 et:
 
+from functools import wraps
 import logging
-import sys, os
+import sys
+import os
 
 try:
     from BaseHTTPServer import HTTPServer, BaseHTTPRequestHandler
@@ -10,13 +12,13 @@ try:
     from urlparse import urlparse, urlsplit, urlunsplit, parse_qsl
     from urllib import urlencode
     from urllib2 import Request
-    from io import BytesIO 
+    from io import BytesIO
 except ImportError:
     from http.server import HTTPServer, BaseHTTPRequestHandler
     from configparser import ConfigParser
     from urllib.parse import (urlparse, parse_qsl, urlencode,
         urlunsplit, urlsplit)
-    from io import BytesIO 
+    from io import BytesIO
     from urllib.request import Request
 
 from gzip import GzipFile
@@ -31,7 +33,7 @@ ENCODING_UTF8 = 'utf-8'
 
 def get_config():
     config = ConfigParser({}, dict)
-    config.read('example.ini') 
+    config.read(os.path.join('example', 'example.ini'))
 
     c = config._sections['sanction']
     if '__name__' in c:
@@ -67,17 +69,20 @@ class Handler(BaseHTTPRequestHandler):
         '/oauth2/deviantart': 'handle_deviantart',
         '/login/meetup': 'handle_meetup_login',
         '/oauth2/meetup': 'handle_meetup',
+        '/login/gitlab': 'handle_gitlab_login',
+        '/oauth2/gitlab': 'handle_gitlab',
     }
 
     def do_GET(self):
         url = urlparse(self.path)
         if url.path in self.route_handlers:
-            getattr(self, self.route_handlers[url.path])(
-            dict(parse_qsl(url.query)))
+            hdlr = getattr(self, self.route_handlers[url.path])
+            hdlr(dict(parse_qsl(url.query)))
         else:
             self.send_response(404)
 
     def success(func):
+        @wraps(func)
         def wrapper(self, *args, **kwargs):
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
@@ -97,14 +102,15 @@ class Handler(BaseHTTPRequestHandler):
             <a href='/oauth2/foursquare'>Foursquare</a>,
             <a href='/oauth2/deviantart'>Deviant Art</a>,
             <a href='/oauth2/meetup'>Meetup.com</a>,
+            <a href='/oauth2/gitlab'>Gitlab.com</a>,
         '''.encode(ENCODING_UTF8))
 
     def handle_stackexchange(self, data):
         self.send_response(302)
         c = Client(auth_endpoint='https://stackexchange.com/oauth',
-            client_id=config['stackexchange.client_id'])
+                   client_id=config['stackexchange.client_id'])
         self.send_header('Location', c.auth_uri(
-            redirect_uri='http://localhost/login/stackexchange'))
+            redirect_uri='http://localhost:8080/login/stackexchange'))
         self.end_headers()
 
     def _gunzip(self, data):
@@ -115,52 +121,52 @@ class Handler(BaseHTTPRequestHandler):
     @success
     def handle_stackexchange_login(self, data):
         c = Client(token_endpoint='https://stackexchange.com/oauth/access_token',
-            resource_endpoint='https://api.stackexchange.com/2.0',
-            client_id=config['stackexchange.client_id'],
-            client_secret=config['stackexchange.client_secret'])
+                   resource_endpoint='https://api.stackexchange.com/2.0',
+                   client_id=config['stackexchange.client_id'],
+                   client_secret=config['stackexchange.client_secret'])
 
         c.request_token(code=data['code'],
-            parser = lambda data: dict(parse_qsl(data)),
-            redirect_uri='http://localhost/login/stackexchange')
+                        parser=lambda data: dict(parse_qsl(data)),
+                        redirect_uri='http://localhost:8080/login/stackexchange')
 
         self.dump_client(c)
         data = c.request('/me?{}'.format(urlencode({
             'site': 'stackoverflow.com',
             'key': config['stackexchange.key']
             })), parser=lambda c: loads(self._gunzip(c).decode(
-                'utf-8')))['items'][0]
+                ENCODING_UTF8)))['items'][0]
 
         self.dump_response(data)
 
     def dump_response(self, data):
         for k in data:
-            self.wfile.write('{0}: {1}<br>'.format(k,
-                data[k]).encode(ENCODING_UTF8))
+            self.wfile.write('{0}: {1}<br>'.format(
+                k, data[k]).encode(ENCODING_UTF8))
 
     def dump_client(self, c):
         for k in c.__dict__:
-            self.wfile.write('{0}: {1}<br>'.format(k,
-                c.__dict__[k]).encode(ENCODING_UTF8))
+            self.wfile.write('{0}: {1}<br>'.format(
+                k, c.__dict__[k]).encode(ENCODING_UTF8))
         self.wfile.write('<hr/>'.encode(ENCODING_UTF8))
 
     def handle_google(self, data):
         self.send_response(302)
         c = Client(auth_endpoint='https://accounts.google.com/o/oauth2/auth',
-            client_id=config['google.client_id'])
+                   client_id=config['google.client_id'])
         self.send_header('Location', c.auth_uri(
             scope=config['google.scope'], access_type='offline',
-            redirect_uri='http://localhost/login/google'))
+            redirect_uri='http://localhost:8080/login/google'))
         self.end_headers()
 
     @success
     def handle_google_login(self, data):
         c = Client(token_endpoint='https://accounts.google.com/o/oauth2/token',
-            resource_endpoint='https://www.googleapis.com/oauth2/v1',
-            client_id=config['google.client_id'],
-            client_secret=config['google.client_secret'],
-            token_transport=transport_headers)
+                   resource_endpoint='https://www.googleapis.com/oauth2/v1',
+                   client_id=config['google.client_id'],
+                   client_secret=config['google.client_secret'],
+                   token_transport=transport_headers)
         c.request_token(code=data['code'],
-            redirect_uri='http://localhost/login/google')
+                        redirect_uri='http://localhost:8080/login/google')
 
         self.dump_client(c)
         data = c.request('/userinfo')
@@ -168,24 +174,25 @@ class Handler(BaseHTTPRequestHandler):
 
         if hasattr(c, 'refresh_token'):
             rc = Client(token_endpoint=c.token_endpoint,
-                client_id=c.client_id,
-                client_secret=c.client_secret,
-                resource_endpoint=c.resource_endpoint,
-                token_transport='headers')
+                        client_id=c.client_id,
+                        client_secret=c.client_secret,
+                        resource_endpoint=c.resource_endpoint,
+                        token_transport='headers')
 
-            rc.request_token(grant_type='refresh_token', 
-                refresh_token=c.refresh_token)
-            self.wfile.write('<p>post refresh token:</p>'.encode(ENCODING_UTF8))
+            rc.request_token(grant_type='refresh_token',
+                             refresh_token=c.refresh_token)
+            self.wfile.write(
+                '<p>post refresh token:</p>'.encode(ENCODING_UTF8))
             self.dump_client(rc)
-        
+
     def handle_facebook(self, data):
         self.send_response(302)
         c = Client(auth_endpoint='https://www.facebook.com/dialog/oauth',
-                client_id=config['facebook.client_id'])
+                   client_id=config['facebook.client_id'])
         self.send_header('Location', c.auth_uri(
             scope=config['facebook.scope'],
-            redirect_uri='http://localhost/login/facebook'))
-            
+            redirect_uri='http://localhost:8080/login/facebook'))
+
         self.end_headers()
 
     @success
@@ -197,7 +204,7 @@ class Handler(BaseHTTPRequestHandler):
             client_secret=config['facebook.client_secret'])
 
         c.request_token(code=data['code'],
-            redirect_uri='http://localhost/login/facebook')
+                        redirect_uri='http://localhost:8080/login/facebook')
 
         self.dump_client(c)
         d = c.request('/me')
@@ -217,9 +224,9 @@ class Handler(BaseHTTPRequestHandler):
     def handle_foursquare(self, data):
         self.send_response(302)
         c = Client(auth_endpoint='https://foursquare.com/oauth2/authenticate',
-                client_id=config['foursquare.client_id'])
+                   client_id=config['foursquare.client_id'])
         self.send_header('Location', c.auth_uri(
-            redirect_uri='http://localhost/login/foursquare'))
+            redirect_uri='http://localhost:8080/login/foursquare'))
         self.end_headers()
 
     @success
@@ -231,7 +238,7 @@ class Handler(BaseHTTPRequestHandler):
                 'oauth_token': access_token
             })
             url = urlunsplit((parts.scheme, parts.netloc, parts.path,
-                urlencode(query), parts.fragment))
+                              urlencode(query), parts.fragment))
             try:
                 req = Request(url, data=data, method=method)
             except TypeError:
@@ -247,58 +254,53 @@ class Handler(BaseHTTPRequestHandler):
             token_transport=token_transport
             )
         c.request_token(code=data['code'],
-            redirect_uri='http://localhost/login/foursquare')
+                        redirect_uri='http://localhost:8080/login/foursquare')
 
         self.dump_client(c)
         d = c.request('/users/24700343')
         self.dump_response(d)
 
-
     def handle_github(self, data):
         self.send_response(302)
         c = Client(auth_endpoint='https://github.com/login/oauth/authorize',
-                client_id=config['github.client_id'])
+                   client_id=config['github.client_id'])
         self.send_header('Location', c.auth_uri(
-            redirect_uri='http://localhost/login/github'))
+            redirect_uri='http://localhost:8080/login/github'))
         self.end_headers()
-
 
     @success
     def handle_github_login(self, data):
         c = Client(token_endpoint='https://github.com/login/oauth/access_token',
-            resource_endpoint='https://api.github.com',
-            client_id=config['github.client_id'],
-            client_secret=config['github.client_secret'])
+                   resource_endpoint='https://api.github.com',
+                   client_id=config['github.client_id'],
+                   client_secret=config['github.client_secret'])
         c.request_token(code=data['code'],
-            redirect_uri='http://localhost/login/github')
+                        redirect_uri='http://localhost:8080/login/github')
 
         self.dump_client(c)
         data = c.request('/user')
         self.dump_response(data)
 
-
     def handle_instagram(self, data):
         self.send_response(302)
         c = Client(auth_endpoint='https://api.instagram.com/oauth/authorize/',
-                client_id=config['instagram.client_id'])
+                   client_id=config['instagram.client_id'])
         self.send_header('Location', c.auth_uri(
-            redirect_uri='http://localhost/login/instagram'))
+            redirect_uri='http://localhost:8080/login/instagram'))
         self.end_headers()
-
 
     @success
     def handle_instagram_login(self, data):
         c = Client(token_endpoint='https://api.instagram.com/oauth/access_token',
-            resource_endpoint='https://api.instagram.com/v1',
-            client_id=config['instagram.client_id'],
-            client_secret=config['instagram.client_secret'])
+                   resource_endpoint='https://api.instagram.com/v1',
+                   client_id=config['instagram.client_id'],
+                   client_secret=config['instagram.client_secret'])
         c.request_token(code=data['code'],
-            redirect_uri='http://localhost/login/instagram')
+                        redirect_uri='http://localhost:8080/login/instagram')
 
         self.dump_client(c)
         data = c.request('/users/self')['data']
         self.dump_response(data)
-
 
     def handle_deviantart(self, data):
         self.send_response(302)
@@ -309,7 +311,6 @@ class Handler(BaseHTTPRequestHandler):
             redirect_uri=config['deviantart.redirect_uri']))
         self.end_headers()
 
-
     @success
     def handle_deviantart_login(self, data):
         c = Client(
@@ -318,38 +319,60 @@ class Handler(BaseHTTPRequestHandler):
             client_id=config['deviantart.client_id'],
             client_secret=config['deviantart.client_secret'])
         c.request_token(code=data['code'],
-            redirect_uri=config['deviantart.redirect_uri'])
+                        redirect_uri=config['deviantart.redirect_uri'])
 
         self.dump_client(c)
         data = c.request('/user/whoami')
         self.dump_response(data)
-		
+
     def handle_meetup(self, data):
         self.send_response(302)
         c = Client(auth_endpoint='https://secure.meetup.com/oauth2/authorize',
-                client_id=config['meetup.client_id'])
+                   client_id=config['meetup.client_id'])
         self.send_header('Location', c.auth_uri(
             scope=config['meetup.scope'],
-            redirect_uri='http://localhost/login/meetup'))
+            redirect_uri='http://localhost:8080/login/meetup'))
         self.end_headers()
 
     @success
     def handle_meetup_login(self, data):
         c = Client(token_endpoint='https://secure.meetup.com/oauth2/access',
-            resource_endpoint='https://api.meetup.com',
-            client_id=config['meetup.client_id'],
-            client_secret=config['meetup.client_secret'])
+                   resource_endpoint='https://api.meetup.com',
+                   client_id=config['meetup.client_id'],
+                   client_secret=config['meetup.client_secret'])
         c.request_token(code=data['code'],
-            redirect_uri='http://localhost/login/meetup')
+                        redirect_uri='http://localhost:8080/login/meetup')
 
         self.dump_client(c)
         data = c.request('/2/member/self/')
         self.dump_response(data)
 
+    def handle_gitlab(self, data):
+        self.send_response(302)
+        c = Client(auth_endpoint='https://gitlab.com/oauth/authorize',
+                   client_id=config['gitlab.client_id'])
+        self.send_header('Location', c.auth_uri(
+            scope=config['gitlab.scope'],
+            redirect_uri='http://localhost:8080/login/gitlab'))
+        self.end_headers()
+
+    @success
+    def handle_gitlab_login(self, data):
+        c = Client(token_endpoint='https://gitlab.com/oauth/token',
+                   resource_endpoint='https://gitlab.com',
+                   client_id=config['gitlab.client_id'],
+                   client_secret=config['gitlab.client_secret'])
+        c.request_token(code=data['code'],
+                        redirect_uri='http://localhost:8080/login/gitlab')
+
+        self.dump_client(c)
+        data = c.request('/api/v4/metadata')
+        self.dump_response(data)
+
 
 if __name__ == '__main__':
     l.setLevel(1)
-    server_address = ('', 80)
+    server_address = ('localhost', 8080)
     server = HTTPServer(server_address, Handler)
-    l.info('Starting server on %sport %s \nPress <ctrl>+c to exit' % server_address)
+    l.info('Starting server %s on port %s \nPress <ctrl>+c to exit' % server_address)
     server.serve_forever()

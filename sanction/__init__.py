@@ -1,6 +1,5 @@
 # vim: set ts=4 sw=)
 
-from functools import wraps
 import json
 from datetime import datetime, timedelta
 from time import mktime
@@ -8,8 +7,8 @@ try:
     from urllib import urlencode
     from urllib2 import Request, urlopen
     from urlparse import urlsplit, urlunsplit, parse_qsl
-
     from httplib import HTTPMessage
+
     def get_content_charset(self, failobj=None):
         try:
             # Example: Content-Type: text/html; charset=ISO-8859-1
@@ -21,11 +20,10 @@ try:
             return failobj
     # monkeypatch HTTPMmessage
     HTTPMessage.get_content_charset = get_content_charset
-except ImportError: # pragma: no cover
+except ImportError:  # pragma: no cover
     from urllib.parse import urlencode, urlsplit, urlunsplit, parse_qsl
     from urllib.request import Request, urlopen
 
-    
 def _request(url, data, method):
     # This is not even really needed. It is in case somebody wants to use
     # method other than GET / POST, which is a bit of a stretch.
@@ -42,8 +40,8 @@ class Client(object):
     """OAuth 2.0 client object"""
 
     def __init__(self, auth_endpoint=None, token_endpoint=None,
-        resource_endpoint="", client_id=None, client_secret=None,
-        token_transport=None):
+                 resource_endpoint="", client_id=None, client_secret=None,
+                 token_transport=None):
         """Instantiates a `Client` to authorize and authenticate a user
 
         :param auth_endpoint: The authorization endpoint as issued by the
@@ -71,8 +69,8 @@ class Client(object):
         self.token_expires = -1
         self.refresh_token = None
 
-    def auth_uri(self, redirect_uri=None, scope=None, scope_delim=None, 
-        state=None, response_type='code', **kwargs):
+    def auth_uri(self, redirect_uri=None, scope=None,
+                 state=None, response_type='code', **kwargs):
 
         """  Builds the auth URI for the authorization endpoint
 
@@ -89,7 +87,6 @@ class Client(object):
         :param **kwargs: Any other querystring parameters to be passed to the
                          provider.
         """
-        
         kwargs['client_id'] = self.client_id
         kwargs['response_type'] = response_type
 
@@ -128,8 +125,8 @@ class Client(object):
         """
         parser = parser or _default_parser
 
-        kwargs['client_id'] = self.client_id,
-        kwargs['client_secret'] = self.client_secret,
+        kwargs['client_id'] = self.client_id
+        kwargs['client_secret'] = self.client_secret
 
         if 'grant_type' not in kwargs:
             kwargs['grant_type'] = 'authorization_code'
@@ -140,7 +137,7 @@ class Client(object):
         # TODO: maybe raise an exception here if status code isn't 200?
         msg = urlopen(self.token_endpoint, urlencode(kwargs).encode(
             'utf-8'))
-        data = parser(msg.read().decode(msg.info().get_content_charset()))
+        data = parser(msg.read().decode(msg.info().get_content_charset(failobj='utf-8')))
 
         for key in data:
             setattr(self, key, data[key])
@@ -151,17 +148,18 @@ class Client(object):
             try:
                 # python3 dosn't support long
                 seconds = long(self.expires_in)
-            except:
+            except NameError:
                 seconds = int(self.expires_in)
             self.token_expires = mktime((datetime.utcnow() + timedelta(
                 seconds=seconds)).timetuple())
 
     def refresh(self):
         self.request_token(refresh_token=self.refresh_token,
-            grant_type='refresh_token')
+                           grant_type='refresh_token')
 
-    def request(self, url, method=None, data=None, headers={}, parser=None, raw=False):
-        """ Request user data from the resource endpoint
+    def request(self, url, method=None, data=None, headers={}, parser=None,
+                raw=False):
+        """ Request user data from the resource endpoint.
         :param url: The path to the resource and querystring if required
         :param method: HTTP method. Defaults to ``GET`` unless data is not None
                        in which case it defaults to ``POST``
@@ -171,7 +169,7 @@ class Client(object):
         :param raw: If the raw response object should be returned
         """
         assert self.access_token
-        parser = parser or _default_parser 
+        parser = parser or _default_parser
 
         full_url = '{0}{1}'.format(self.resource_endpoint, url)
         req = self.token_transport(full_url, self.access_token,
@@ -188,7 +186,8 @@ class Client(object):
         try:
             # Try to decode it first using either the content charset, falling
             # back to UTF-8
-            return parser(data.decode(resp.info().get_content_charset(failobj="utf-8"))))
+            return parser(data.decode(resp.info().
+                                      get_content_charset(failobj='utf-8')))
         except UnicodeDecodeError:
             # If we've gotten a decoder error, the calling code better know how
             # to deal with it. Some providers (i.e. stackexchange) like to gzip
@@ -212,7 +211,7 @@ def transport_query(url, access_token, data=None, method=None, headers={}):
     query = dict(parse_qsl(parts.query))
     query['access_token'] = access_token
     url = urlunsplit((parts.scheme, parts.netloc, parts.path,
-        urlencode(query), parts.fragment))
+                      urlencode(query), parts.fragment))
     req = _request(url, data=data, method=method)
     req.headers.update(headers)
     return req
