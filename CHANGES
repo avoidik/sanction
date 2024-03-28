@@ -3,7 +3,7 @@ Changes
 
 sanction 0.4.1 (1-14-2014)
 ==========================
-* Fixed string formatting for Python 2.6 
+* Fixed string formatting for Python 2.6
 
 sanction 0.4 (8-21-2013)
 ==========================
@@ -17,8 +17,8 @@ sanction 0.4 (8-21-2013)
   may be 'foo,bar' while Google would be 'foo bar'.
 * Breaking: removed redirect_uri from Client.__init__ (didn't make sense to
   be there. This has been added to auth_uri and request_token.
-* Deprecation: sanction.client.Client has been deprecated in favor of 
-  sanction.Client. The deprecated version will likely be removed within 
+* Deprecation: sanction.client.Client has been deprecated in favor of
+  sanction.Client. The deprecated version will likely be removed within
   the next couple minor revisions.
 * Feature: Added headers param to request
 * Feature: Added with_patched_client test decorator
@@ -47,5 +47,5 @@ sanction 0.3 (2-21-2013)
 sanction 0.1.4 (9-14-2012)
 ==========================
 * Added support for refresh_token
-* Removed check for endpoint errors in request_token. Client code should 
+* Removed check for endpoint errors in request_token. Client code should
   deal with that before calling request_token.
